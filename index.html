@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AUTO KEY STORE - Hệ Thống AI Siêu Việt Cấp Key Tự Động</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+  <!-- Thư viện AI OCR Tesseract -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
+    .glass-card { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+  <!-- Header -->
+  <header class="glass-card sticky top-0 z-40 border-b border-gray-800 px-4 py-3">
+    <div class="max-w-4xl mx-auto flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+          <i class="fa-solid fa-brain"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-none text-white tracking-wide">HAUNE STORE</h1>
+          <p class="text-xs text-cyan-400 mt-1 flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Hệ Thống AI Siêu Việt Quét Bill 24/7
+          </p>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <div id="authHeaderArea" class="flex items-center gap-2">
+          <button onclick="openAuthModal('login')" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs text-white font-semibold transition">Đăng Nhập</button>
+          <button onclick="openAuthModal('register')" class="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-xs text-gray-950 font-bold transition">Đăng Ký</button>
+        </div>
+        
+        <button onclick="openAdminLoginModal()" class="w-8 h-8 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition" title="Admin">
+          <i class="fa-solid fa-user-shield text-sm"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-4xl mx-auto px-4 py-6 w-full space-y-6">
+
+    <!-- Thông tin tài khoản khách hàng khi đã đăng nhập -->
+    <div id="userAccountCard" class="hidden glass-card rounded-2xl p-4 md:p-5 shadow-xl border-l-4 border-l-cyan-500 flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl font-bold"><i class="fa-solid fa-user-circle"></i></div>
+        <div>
+          <p class="text-xs text-gray-400">Xin chào tài khoản,</p>
+          <h3 id="currentUsernameDisplay" class="font-bold text-white text-base">username</h3>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openHistoryModal()" class="px-3.5 py-2 bg-gray-800 hover:bg-gray-700 text-cyan-400 rounded-xl text-xs font-bold border border-gray-700 transition flex items-center gap-1.5"><i class="fa-solid fa-clock-rotate-left"></i> Lịch Sử Mua Key</button>
+        <button onclick="handleLogout()" class="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs font-bold border border-rose-500/20 transition"><i class="fa-solid fa-right-from-bracket"></i></button>
+      </div>
+    </div>
+
+    <!-- Step 1: QR & Bảng giá -->
+    <div class="glass-card rounded-2xl p-5 md:p-6 shadow-xl relative overflow-hidden">
+      <div class="text-center max-w-xl mx-auto mb-6">
+        <span class="bg-blue-500/10 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full border border-blue-500/20 uppercase tracking-wider">Bước 1: Chuyển khoản</span>
+        <h2 class="text-xl md:text-2xl font-bold mt-2 text-white">Thanh Toán Quét Mã QR</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6 items-center">
+        <div class="flex flex-col items-center justify-center bg-gray-900/90 p-5 rounded-2xl border border-gray-800 shadow-inner">
+          <div class="p-3 bg-white rounded-xl shadow-lg mb-3">
+            <div id="qrcode" class="flex justify-center"></div>
+          </div>
+          <div class="text-center space-y-1">
+            <p class="text-xs text-gray-400">Chủ tài khoản</p>
+            <p class="font-bold text-white tracking-wide text-sm">LE DUONG MINH ANH</p>
+            <p class="text-xs text-gray-400 mt-1">Số tài khoản / MoMo</p>
+            <div class="inline-flex items-center gap-2 bg-gray-800 px-3 py-1 rounded-lg border border-gray-700 mt-1">
+              <span class="font-mono text-cyan-400 font-bold text-sm">0345129671</span>
+              <button onclick="copySTK()" class="text-xs text-gray-400 hover:text-white transition"><i class="fa-regular fa-copy"></i></button>
+            </div>
+            <div class="pt-2">
+              <a href="https://zalo.me/0345129671" target="_blank" class="text-xs text-cyan-400 hover:underline font-semibold">
+                <i class="fa-solid fa-phone"></i> Hotline/Zalo Hỗ Trợ: 0345129671
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-2.5">
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-tags text-cyan-400"></i> Bảng giá quy đổi Key
+          </h3>
+          <div class="grid grid-cols-1 gap-2 text-sm">
+            <div class="flex justify-between items-center p-2.5 rounded-xl bg-gray-900/60 border border-gray-800"><span class="font-semibold text-white">1.000 VNĐ</span><span class="bg-cyan-500/10 text-cyan-400 text-xs px-2.5 py-1 rounded-lg font-bold border border-cyan-500/20">1 KEY</span></div>
+            <div class="flex justify-between items-center p-2.5 rounded-xl bg-gray-900/60 border border-gray-800"><span class="font-semibold text-white">5.000 VNĐ</span><span class="bg-cyan-500/10 text-cyan-400 text-xs px-2.5 py-1 rounded-lg font-bold border border-cyan-500/20">8 KEY</span></div>
+            <div class="flex justify-between items-center p-2.5 rounded-xl bg-gray-900/60 border border-gray-800"><span class="font-semibold text-white">10.000 VNĐ</span><span class="bg-cyan-500/10 text-cyan-400 text-xs px-2.5 py-1 rounded-lg font-bold border border-cyan-500/20">18 KEY</span></div>
+            <div class="flex justify-between items-center p-2.5 rounded-xl bg-gray-900/60 border border-gray-800"><span class="font-semibold text-white">15.000 VNĐ</span><span class="bg-cyan-500/10 text-cyan-400 text-xs px-2.5 py-1 rounded-lg font-bold border border-cyan-500/20">24 KEY</span></div>
+            <div class="flex justify-between items-center p-2.5 rounded-xl bg-gray-900/60 border border-gray-800 border-l-2 border-l-cyan-400"><span class="font-semibold text-white">20.000 VNĐ</span><span class="bg-cyan-500/20 text-cyan-300 text-xs px-2.5 py-1 rounded-lg font-bold border border-cyan-500/30">35 KEY (HOT)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Tải Bill & AI Cấp Key Tự Động -->
+    <div class="glass-card rounded-2xl p-5 md:p-6 shadow-xl">
+      <div class="text-center max-w-xl mx-auto mb-5">
+        <span class="bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-3 py-1 rounded-full border border-emerald-500/20 uppercase tracking-wider">Bước 2: Tải Bill Nhận Key Tự Động</span>
+        <h2 class="text-xl md:text-2xl font-bold mt-2 text-white">Tải Hóa Đơn Lên Để Hệ Thống AI Cấp Key</h2>
+        <p class="text-xs text-gray-400 mt-1">Đăng nhập tài khoản &rightarrow; Chọn ảnh bill &rightarrow; Hệ thống AI Siêu Việt tự động quét số tiền và xuất key tức thi</p>
+      </div>
+
+      <div class="space-y-4">
+        <div id="dropZone" onclick="document.getElementById('billInput').click()" class="border-2 border-dashed border-gray-700 hover:border-cyan-500/80 rounded-2xl p-6 text-center cursor-pointer transition bg-gray-900/40 relative group">
+          <input type="file" id="billInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+          <div id="uploadPlaceholder" class="space-y-2">
+            <div class="w-12 h-12 rounded-full bg-gray-800 group-hover:bg-cyan-500/20 text-gray-400 group-hover:text-cyan-400 flex items-center justify-center mx-auto transition"><i class="fa-solid fa-cloud-arrow-up text-xl"></i></div>
+            <p class="text-sm font-medium text-gray-300">Nhấp để chọn hoặc kéo thả ảnh Bill chuyển khoản vào đây</p>
+          </div>
+          <div id="imagePreviewContainer" class="hidden flex flex-col items-center gap-3">
+            <img id="imagePreview" class="max-h-52 rounded-xl border border-gray-700 shadow-md object-contain">
+            <button type="button" onclick="event.stopPropagation(); removeSelectedImage();" class="text-xs text-rose-400 hover:text-rose-300 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20">Chọn ảnh khác</button>
+          </div>
+        </div>
+
+        <button id="btnCheckBill" onclick="systemAiScanAndIssue()" disabled class="w-full py-3.5 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 text-sm transition">
+          <i class="fa-solid fa-brain"></i><span id="btnText">Gửi Bill & Tự Động Nhận Key</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- KHU VỰC HIỂN THỊ KẾT QUẢ AI -->
+    <div id="keyResultContainer" class="hidden glass-card rounded-2xl p-5 md:p-6 shadow-xl border-l-4 border-l-cyan-500 space-y-3">
+      <div id="botStatusBox" class="flex items-center gap-3 p-3 rounded-xl bg-gray-900/80 border border-gray-800">
+        <div id="botAvatar" class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-lg"><i class="fa-solid fa-robot"></i></div>
+        <div>
+          <h4 id="botMessageTitle" class="font-bold text-sm text-white">Hệ Thống AI Siêu Việt Đang Xử Lý</h4>
+          <p id="botMessageDesc" class="text-xs text-gray-400">Đang quét bóc tách con số trên bill...</p>
+        </div>
+      </div>
+      <div id="keysDisplayArea" class="hidden space-y-3 pt-2">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider"><i class="fa-solid fa-circle-check"></i> Key Đã Được Cấp Vào Tài Khoản Của Bạn:</span>
+          <button onclick="copyAllKeys()" class="text-xs bg-cyan-500/10 text-cyan-400 px-2.5 py-1 rounded-lg border border-cyan-500/30 flex items-center gap-1"><i class="fa-regular fa-copy"></i> Sao Chép Tất Cả</button>
+        </div>
+        <div id="keyList" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar p-1"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="py-4 text-center text-xs text-gray-500 border-t border-gray-900">
+    <p>© 2026 AUTO KEY STORE - Hỗ trợ Zalo: <span class="text-cyan-400 font-bold">0345129671</span></p>
+  </footer>
+
+  <!-- Modal Đăng Nhập / Đăng Ký -->
+  <div id="authModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-sm w-full p-6 space-y-4 border border-gray-800 relative">
+      <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      <div class="text-center space-y-1">
+        <div class="w-12 h-12 bg-gray-800 text-cyan-400 rounded-xl flex items-center justify-center mx-auto text-xl mb-2"><i class="fa-solid fa-user"></i></div>
+        <h3 id="authModalTitle" class="text-lg font-bold text-white">Đăng Nhập Tài Khoản</h3>
+      </div>
+      <form onsubmit="handleAuthSubmit(event)" class="space-y-3">
+        <div><label class="block text-xs text-gray-400 mb-1">Tên tài khoản</label><input type="text" id="authUsername" required class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white"></div>
+        <div><label class="block text-xs text-gray-400 mb-1">Mật khẩu</label><input type="password" id="authPassword" required class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white"></div>
+        <button type="submit" id="authSubmitBtn" class="w-full py-2.5 bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold rounded-xl text-sm">Đăng Nhập</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Lịch Sử Mua Key -->
+  <div id="historyModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-lg w-full max-h-[80vh] flex flex-col p-6 space-y-4 border border-gray-800 relative shadow-2xl">
+      <button onclick="closeHistoryModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      <h3 class="text-base font-bold text-white"><i class="fa-solid fa-clock-rotate-left text-cyan-400"></i> Lịch Sử Mua Key Của Bạn</h3>
+      <div id="clientHistoryList" class="space-y-2.5 overflow-y-auto custom-scrollbar flex-1 pr-1"></div>
+    </div>
+  </div>
+
+  <!-- Modal Admin Login -->
+  <div id="adminLoginModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-sm w-full p-6 space-y-4 border border-gray-800 relative">
+      <button onclick="closeAdminLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      <div class="text-center space-y-1">
+        <div class="w-12 h-12 bg-gray-800 text-cyan-400 rounded-xl flex items-center justify-center mx-auto text-xl mb-2"><i class="fa-solid fa-lock"></i></div>
+        <h3 class="text-lg font-bold text-white">Đăng Nhập Admin</h3>
+      </div>
+      <form onsubmit="handleAdminLogin(event)" class="space-y-3">
+        <div><label class="block text-xs text-gray-400 mb-1">Tài khoản</label><input type="text" id="adminUser" required class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white"></div>
+        <div><label class="block text-xs text-gray-400 mb-1">Mật khẩu</label><input type="password" id="adminPass" required class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white"></div>
+        <button type="submit" class="w-full py-2.5 bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold rounded-xl text-sm">Đăng Nhập</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Admin Dashboard -->
+  <div id="adminDashboardModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-3 md:p-6">
+    <div class="glass-card rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-gray-800 shadow-2xl overflow-hidden">
+      <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/80">
+        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500"></span><h3 class="font-bold text-white text-base">Hệ Thống Quản Trị AI & Tài Khoản (Admin)</h3></div>
+        <button onclick="closeAdminDashboard()" class="text-gray-400 hover:text-white px-3 py-1 rounded-lg bg-gray-800 text-xs">Thoát</button>
+      </div>
+
+      <div class="p-4 md:p-6 overflow-y-auto custom-scrollbar space-y-6 flex-1">
+        <!-- Thống kê -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="p-3.5 bg-gray-900/80 rounded-xl border border-gray-800"><p class="text-xs text-gray-400">Tổng Key Kho</p><p id="statStockCount" class="text-xl font-bold text-cyan-400 mt-1">0</p></div>
+          <div class="p-3.5 bg-gray-900/80 rounded-xl border border-gray-800"><p class="text-xs text-gray-400">Tài Khoản Đăng Ký</p><p id="statUsersCount" class="text-xl font-bold text-amber-400 mt-1">0</p></div>
+          <div class="p-3.5 bg-gray-900/80 rounded-xl border border-gray-800"><p class="text-xs text-gray-400">Key Đã Bán</p><p id="statKeysSold" class="text-xl font-bold text-blue-400 mt-1">0</p></div>
+          <div class="p-3.5 bg-gray-900/80 rounded-xl border border-gray-800"><p class="text-xs text-gray-400">Doanh Thu</p><p id="statRevenue" class="text-xl font-bold text-emerald-400 mt-1">0đ</p></div>
+        </div>
+
+        <!-- Nạp Key -->
+        <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-800 space-y-3">
+          <h4 class="font-bold text-sm text-white"><i class="fa-solid fa-key text-cyan-400"></i> Nạp Thêm Key Lên Cloud</h4>
+          <textarea id="inputNewKeys" rows="3" placeholder="Mỗi dòng là 1 key..." class="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs text-white font-mono"></textarea>
+          <div class="flex justify-end"><button onclick="addKeysToStock()" class="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold text-xs rounded-lg">Nạp Lên Cloud</button></div>
+        </div>
+
+        <!-- Kho Key -->
+        <div class="space-y-3">
+          <div class="flex justify-between items-center">
+            <h4 class="font-bold text-sm text-white">Kho Key Trực Tuyến</h4>
+            <button onclick="clearAllStockKeys()" class="text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-1 rounded-lg">Xóa Tất Cả</button>
+          </div>
+          <div id="stockKeysList" class="max-h-40 overflow-y-auto custom-scrollbar bg-gray-950/60 p-2 rounded-xl border border-gray-800 space-y-1.5"></div>
+        </div>
+
+        <!-- Danh Sách Tài Khoản Khách Hàng -->
+        <div class="space-y-3">
+          <h4 class="font-bold text-sm text-white"><i class="fa-solid fa-users text-cyan-400"></i> Danh Sách Tài Khoản Khách Hàng Đã Đăng Ký</h4>
+          <div id="adminUsersList" class="space-y-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Cấu hình Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyAwWci_NB4gEGnhVNB95eBQMH3qBb9sHtg",
+      authDomain: "haunekey.firebaseapp.com",
+      databaseURL: "https://haunekey-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "haunekey",
+      storageBucket: "haunekey.firebasestorage.app",
+      messagingSenderId: "110762911062",
+      appId: "1:110762911062:web:987a312cb5a161a437a2f7",
+      measurementId: "G-LL7838FVDD"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let keyStock = [];
+    let registeredUsers = [];
+    let orderHistory = [];
+    let selectedImageBase64 = null;
+    let currentUser = localStorage.getItem('haune_logged_user') || null;
+    let authMode = 'login';
+    let latestDeliveredKeys = [];
+
+    window.onload = function() {
+      new QRCode(document.getElementById("qrcode"), {
+        text: "2|99|0345129671|LE DUONG MINH ANH||0|0|0||momo",
+        width: 140, height: 140, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H
+      });
+      fetchDataRealtime();
+      checkAuthUI();
+    };
+
+    function fetchDataRealtime() {
+      db.collection("store").doc("data").onSnapshot((doc) => {
+        if (doc.exists) {
+          const data = doc.data();
+          keyStock = data.keys || [];
+          registeredUsers = data.users || [];
+          orderHistory = data.orders || [];
+        } else {
+          db.collection("store").doc("data").set({
+            keys: ['KEY-HAUNE-01', 'KEY-HAUNE-02', 'KEY-HAUNE-03'],
+            users: [],
+            orders: []
+          });
+        }
+        renderAdminStats();
+        renderStockKeysList();
+        renderAdminUsers();
+      });
+    }
+
+    async function syncToCloud() {
+      await db.collection("store").doc("data").set({
+        keys: keyStock,
+        users: registeredUsers,
+        orders: orderHistory
+      });
+    }
+
+    function copySTK() {
+      navigator.clipboard.writeText('0345129671');
+      alert('Đã chép số tài khoản!');
+    }
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          selectedImageBase64 = event.target.result;
+          document.getElementById('imagePreview').src = selectedImageBase64;
+          document.getElementById('uploadPlaceholder').classList.add('hidden');
+          document.getElementById('imagePreviewContainer').classList.remove('hidden');
+          
+          if (!currentUser) {
+            alert('Vui lòng Đăng nhập / Đăng ký tài khoản trước khi gửi bill!');
+            openAuthModal('login');
+          } else {
+            document.getElementById('btnCheckBill').disabled = false;
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function removeSelectedImage() {
+      selectedImageBase64 = null;
+      document.getElementById('billInput').value = '';
+      document.getElementById('uploadPlaceholder').classList.remove('hidden');
+      document.getElementById('imagePreviewContainer').classList.add('hidden');
+      document.getElementById('btnCheckBill').disabled = true;
+      document.getElementById('keyResultContainer').classList.add('hidden');
+    }
+
+    // --- HỆ THỐNG AI SIÊU VIỆT QUÉT BILL VÀ CẤP KEY TỰ ĐỘNG ---
+    async function systemAiScanAndIssue() {
+      if (!selectedImageBase64) return;
+      if (!currentUser) {
+        alert('Vui lòng Đăng Nhập để nhận key!');
+        openAuthModal('login');
+        return;
+      }
+
+      const btn = document.getElementById('btnCheckBill');
+      const btnText = document.getElementById('btnText');
+      const resultContainer = document.getElementById('keyResultContainer');
+      const botStatusBox = document.getElementById('botStatusBox');
+      const botAvatar = document.getElementById('botAvatar');
+      const botTitle = document.getElementById('botMessageTitle');
+      const botDesc = document.getElementById('botMessageDesc');
+      const keysArea = document.getElementById('keysDisplayArea');
+
+      btn.disabled = true;
+      btnText.innerText = "Hệ Thống AI Siêu Việt đang quét bill...";
+      resultContainer.classList.remove('hidden');
+      keysArea.classList.add('hidden');
+
+      botStatusBox.className = "flex items-center gap-3 p-3 rounded-xl bg-gray-900/80 border border-cyan-500/30";
+      botAvatar.className = "w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-lg animate-pulse";
+      botTitle.innerText = "Hệ Thống AI Đang Phân Tích Bill...";
+      botDesc.innerText = "Tự động phân biệt chính xác 1K, 5K, 10K, 15K, 20K để cấp đúng số lượng key.";
+
+      try {
+        const worker = await Tesseract.createWorker('eng+vie');
+        const ret = await worker.recognize(selectedImageBase64);
+        await worker.terminate();
+
+        const text = ret.data.text.toLowerCase().replace(/[\n\r]/g, ' ');
+
+        let detectedAmount = 0;
+        let keysNeeded = 0;
+
+        if (/(?<![0-9])20[.\s]?000(?![0-9])|20k(?![a-z0-9])/i.test(text)) {
+          detectedAmount = 20000; keysNeeded = 35;
+        } else if (/(?<![0-9])15[.\s]?000(?![0-9])|15k(?![a-z0-9])/i.test(text)) {
+          detectedAmount = 15000; keysNeeded = 24;
+        } else if (/(?<![0-9])10[.\s]?000(?![0-9])|10k(?![a-z0-9])/i.test(text)) {
+          detectedAmount = 10000; keysNeeded = 18;
+        } else if (/(?<![1-9])5[.\s]?000(?![0-9])|(?<![a-z0-9])5k(?![a-z0-9])/i.test(text) && !text.includes('15.000') && !text.includes('15000')) {
+          detectedAmount = 5000; keysNeeded = 8;
+        } else if (/(?<![0-9])1[.\s]?000(?![0-9])|1k(?![a-z0-9])/i.test(text)) {
+          detectedAmount = 1000; keysNeeded = 1;
+        }
+
+        if (detectedAmount === 0) {
+          showAiError("AI Không Nhận Diện Được Số Tiền!", "Ảnh bill không rõ hoặc không có mốc tiền hợp lệ (1K, 5K, 10K, 15K, 20K). Vui lòng gửi ảnh rõ nét hoặc nhắn Zalo 0345129671 hỗ trợ.");
+          btn.disabled = false;
+          btnText.innerText = "Gửi Bill & Tự Động Nhận Key";
+          return;
+        }
+
+        if (keyStock.length < keysNeeded) {
+          showAiError("Kho Key Tạm Hết!", `AI đã quét chuẩn gói ${detectedAmount.toLocaleString()}đ (${keysNeeded} key) nhưng kho cloud chỉ còn ${keyStock.length} key.`);
+          btn.disabled = false;
+          btnText.innerText = "Gửi Bill & Tự Động Nhận Key";
+          return;
+        }
+
+        const deliveredKeys = keyStock.splice(0, keysNeeded);
+        const orderId = "ORD" + Math.floor(100000 + Math.random() * 900000);
+
+        const orderInfo = {
+          id: orderId,
+          user: currentUser,
+          time: new Date().toLocaleString('vi-VN'),
+          amount: detectedAmount,
+          keysCount: keysNeeded,
+          keys: deliveredKeys,
+          billImg: selectedImageBase64
+        };
+
+        orderHistory.unshift(orderInfo);
+        await syncToCloud();
+
+        botStatusBox.className = "flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30";
+        botAvatar.className = "w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg";
+        botTitle.innerText = "AI Nhận Diện Chuẩn Xác 100%!";
+        botTitle.className = "font-bold text-sm text-emerald-400";
+        botDesc.innerText = `Hệ Thống AI Siêu Việt đã xác nhận bill ${detectedAmount.toLocaleString()}đ và cấp tự động ${keysNeeded} Key vào tài khoản ${currentUser}!`;
+
+        latestDeliveredKeys = deliveredKeys;
+        renderKeysToUser(deliveredKeys);
+        keysArea.classList.remove('hidden');
+
+      } catch (err) {
+        showAiError("Lỗi Xử Lý Ảnh!", "Không thể đọc ảnh bill này. Vui lòng chụp rõ nét hơn.");
+      }
+
+      btn.disabled = false;
+      btnText.innerText = "Gửi Bill & Tự Động Nhận Key";
+    }
+
+    function showAiError(title, desc) {
+      const botStatusBox = document.getElementById('botStatusBox');
+      const botAvatar = document.getElementById('botAvatar');
+      const botTitle = document.getElementById('botMessageTitle');
+      const botDesc = document.getElementById('botMessageDesc');
+
+      botStatusBox.className = "flex items-center gap-3 mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30";
+      botAvatar.className = "w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg";
+      botTitle.innerText = title;
+      botTitle.className = "font-bold text-sm text-rose-400";
+      botDesc.innerText = desc;
+    }
+
+    function renderKeysToUser(keys) {
+      const container = document.getElementById('keyList');
+      container.innerHTML = keys.map(k => `
+        <div class="flex justify-between items-center bg-gray-900 px-3 py-2 rounded-xl border border-gray-800">
+          <span class="font-mono text-cyan-300 text-xs font-bold truncate">${k}</span>
+          <button onclick="navigator.clipboard.writeText('${k}'); alert('Đã chép: ${k}');" class="text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded">Copy</button>
+        </div>
+      `).join('');
+    }
+
+    function copyAllKeys() {
+      navigator.clipboard.writeText(latestDeliveredKeys.join('\n'));
+      alert('Đã sao chép tất cả key!');
+    }
+
+    // --- QUẢN LÝ TÀI KHOẢN ---
+    function openAuthModal(mode) {
+      authMode = mode;
+      document.getElementById('authModalTitle').innerText = mode === 'login' ? 'Đăng Nhập Tài Khoản' : 'Đăng Ký Tài Khoản Mới';
+      document.getElementById('authSubmitBtn').innerText = mode === 'login' ? 'Đăng Nhập' : 'Đăng Ký Ngay';
+      document.getElementById('authModal').classList.remove('hidden');
+    }
+    function closeAuthModal() { document.getElementById('authModal').classList.add('hidden'); }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const u = document.getElementById('authUsername').value.trim();
+      const p = document.getElementById('authPassword').value.trim();
+
+      if (!u || !p) return;
+
+      if (authMode === 'register') {
+        const existing = registeredUsers.find(x => x.username === u);
+        if (existing) {
+          alert('Tên tài khoản này đã tồn tại, vui lòng chọn tên khác!');
+          return;
+        }
+        registeredUsers.push({ username: u, password: p, created: new Date().toLocaleString('vi-VN') });
+        await syncToCloud();
+        alert('Đăng ký tài khoản thành công! Hệ thống đã tự động đăng nhập.');
+      } else {
+        const user = registeredUsers.find(x => x.username === u && x.password === p);
+        if (!user) {
+          alert('Sai tên tài khoản hoặc mật khẩu!');
+          return;
+        }
+      }
+
+      currentUser = u;
+      localStorage.setItem('haune_logged_user', u);
+      closeAuthModal();
+      checkAuthUI();
+      alert('Xin chào ' + u + '!');
+    }
+
+    function handleLogout() {
+      currentUser = null;
+      localStorage.removeItem('haune_logged_user');
+      checkAuthUI();
+      document.getElementById('keyResultContainer').classList.add('hidden');
+      alert('Đã đăng xuất tài khoản!');
+    }
+
+    function checkAuthUI() {
+      const headerArea = document.getElementById('authHeaderArea');
+      const userCard = document.getElementById('userAccountCard');
+      const btnCheckBill = document.getElementById('btnCheckBill');
+
+      if (currentUser) {
+        headerArea.classList.add('hidden');
+        userCard.classList.remove('hidden');
+        document.getElementById('currentUsernameDisplay').innerText = currentUser;
+        if (selectedImageBase64) btnCheckBill.disabled = false;
+      } else {
+        headerArea.classList.remove('hidden');
+        userCard.classList.add('hidden');
+        btnCheckBill.disabled = true;
+      }
+    }
+
+    function openHistoryModal() {
+      const container = document.getElementById('clientHistoryList');
+      const myOrders = orderHistory.filter(o => o.user === currentUser);
+
+      if (myOrders.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-500 text-center py-4">Bạn chưa có lịch sử mua key nào</p>`;
+      } else {
+        container.innerHTML = myOrders.map(o => `
+          <div class="p-3 bg-gray-900 rounded-xl border border-gray-800 space-y-1.5 text-xs">
+            <div class="flex justify-between font-bold">
+              <span class="text-cyan-400">Mã: ${o.id} - ${o.amount.toLocaleString()}đ (${o.keysCount} KEY)</span>
+              <span class="text-gray-400">${o.time}</span>
+            </div>
+            <p class="font-mono text-[10px] text-emerald-300 truncate">Key: ${o.keys.join(', ')}</p>
+          </div>
+        `).join('');
+      }
+      document.getElementById('historyModal').classList.remove('hidden');
+    }
+    function closeHistoryModal() { document.getElementById('historyModal').classList.add('hidden'); }
+
+    // --- ADMIN ---
+    function openAdminLoginModal() { document.getElementById('adminLoginModal').classList.remove('hidden'); }
+    function closeAdminLoginModal() { document.getElementById('adminLoginModal').classList.add('hidden'); }
+
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('adminUser').value.trim();
+      const p = document.getElementById('adminPass').value.trim();
+
+      if (u === 'haune8445' && p === 'haune8445') {
+        closeAdminLoginModal();
+        document.getElementById('adminDashboardModal').classList.remove('hidden');
+        alert('Đăng nhập Admin thành công!');
+      } else {
+        alert('Sai mật khẩu hoặc tài khoản Admin!');
+      }
+    }
+
+    function closeAdminDashboard() { 
+      document.getElementById('adminDashboardModal').classList.add('hidden'); 
+    }
+
+    function renderAdminStats() {
+      document.getElementById('statStockCount').innerText = keyStock.length;
+      document.getElementById('statUsersCount').innerText = registeredUsers.length;
+      
+      let totalSold = 0;
+      let revenue = 0;
+      orderHistory.forEach(o => {
+        totalSold += o.keysCount;
+        revenue += o.amount;
+      });
+
+      document.getElementById('statKeysSold').innerText = totalSold;
+      document.getElementById('statRevenue').innerText = revenue.toLocaleString('vi-VN') + 'đ';
+    }
+
+    function renderStockKeysList() {
+      const container = document.getElementById('stockKeysList');
+      if (keyStock.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-500 text-center py-2">Kho key đang trống</p>`;
+        return;
+      }
+      container.innerHTML = keyStock.map((k, index) => `
+        <div class="flex justify-between items-center bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-800 text-xs">
+          <span class="font-mono text-cyan-300">${index + 1}. ${k}</span>
+          <button onclick="removeSingleKey(${index})" class="text-rose-400 hover:text-rose-300"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      `).join('');
+    }
+
+    async function addKeysToStock() {
+      const raw = document.getElementById('inputNewKeys').value.trim();
+      if (!raw) return;
+      const newKeys = raw.split('\n').map(k => k.trim()).filter(k => k.length > 0);
+      
+      keyStock = keyStock.concat(newKeys);
+      await syncToCloud();
+      document.getElementById('inputNewKeys').value = '';
+      alert(`Đã nạp thành công ${newKeys.length} key mới lên kho Cloud!`);
+    }
+
+    async function removeSingleKey(index) {
+      keyStock.splice(index, 1);
+      await syncToCloud();
+    }
+
+    async function clearAllStockKeys() {
+      if (confirm('Bạn có chắc chắn muốn xóa toàn bộ kho key?')) {
+        keyStock = [];
+        await syncToCloud();
+      }
+    }
+
+    function renderAdminUsers() {
+      const container = document.getElementById('adminUsersList');
+      if (registeredUsers.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-500 text-center py-2">Chưa có tài khoản khách hàng nào</p>`;
+        return;
+      }
+      container.innerHTML = registeredUsers.map((u, index) => `
+        <div class="flex justify-between items-center p-3 bg-gray-900 rounded-xl border border-gray-800 text-xs">
+          <div>
+            <p class="font-bold text-white"><i class="fa-solid fa-user text-cyan-400 mr-1"></i> ${u.username}</p>
+            <p class="text-[10px] text-gray-400">Đăng ký: ${u.created || 'N/A'}</p>
+          </div>
+          <button onclick="deleteUser('${u.username}')" class="text-rose-400 hover:text-rose-300 bg-rose-500/10 px-2.5 py-1 rounded-lg">Xóa</button>
+        </div>
+      `).join('');
+    }
+
+    async function deleteUser(username) {
+      if (confirm(`Bạn muốn xóa tài khoản ${username}?`)) {
+        registeredUsers = registeredUsers.filter(u => u.username !== username);
+        await syncToCloud();
+      }
+    }
+  </script>
+</body>
+</html>
